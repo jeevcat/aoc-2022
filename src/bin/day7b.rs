@@ -5,6 +5,9 @@ use std::{
     str::FromStr,
 };
 
+const TOTAL_SPACE: u64 = 70_000_000;
+const NEEDED_SPACE: u64 = 30_000_000;
+
 enum Line {
     Command(Command),
     Listing(Listing),
@@ -95,9 +98,23 @@ fn main() {
             }
         }
     }
-    let total: u64 = directories
+    let used_space = directories[""];
+    let free_space = TOTAL_SPACE - used_space;
+    let delete_at_least = NEEDED_SPACE - free_space;
+
+    dbg!(used_space, free_space, delete_at_least);
+
+    let deleted: u64 = directories
         .into_iter()
-        .filter_map(|(_, size)| if size <= 100_000 { Some(size) } else { None })
-        .sum();
-    dbg!(total);
+        .filter_map(|(_, size)| {
+            if size >= delete_at_least {
+                Some(size)
+            } else {
+                None
+            }
+        })
+        .min()
+        .unwrap();
+
+    dbg!(deleted);
 }
