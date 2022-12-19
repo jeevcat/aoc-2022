@@ -73,7 +73,6 @@ fn main() {
                 print!("#");
             } else {
                 print!(" ");
-
             }
             pixel += 1;
         }
