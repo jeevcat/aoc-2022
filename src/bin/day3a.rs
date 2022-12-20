@@ -108,37 +108,4 @@ mod tests {
         let item = Item::try_from('Z').unwrap();
         assert_eq!(item.priority, 52);
     }
-
-    #[test]
-    fn test_parse_compartment() {
-        let compartment: Compartment = "aA".parse().unwrap();
-        assert_eq!(compartment.items.len(), 2);
-        assert_eq!(compartment.items[0].priority, 1);
-        assert_eq!(compartment.items[1].priority, 27);
-
-        let compartment: Compartment = "abcdef".parse().unwrap();
-        assert_eq!(compartment.items.len(), 6);
-        assert_eq!(compartment.items[0].priority, 1);
-        assert_eq!(compartment.items[1].priority, 2);
-        assert_eq!(compartment.items[2].priority, 3);
-        assert_eq!(compartment.items[3].priority, 4);
-        assert_eq!(compartment.items[4].priority, 5);
-    }
-
-    #[test]
-    fn test_parse_rucksack() {
-        let rucksack: Rucksack = "abcdefABCDEF".parse().unwrap();
-        assert_eq!(rucksack.compartments[0].items.len(), 6);
-        assert_eq!(rucksack.compartments[0].items[0].priority, 1);
-        assert_eq!(rucksack.compartments[0].items[1].priority, 2);
-        assert_eq!(rucksack.compartments[0].items[2].priority, 3);
-        assert_eq!(rucksack.compartments[0].items[3].priority, 4);
-        assert_eq!(rucksack.compartments[0].items[4].priority, 5);
-        assert_eq!(rucksack.compartments[1].items.len(), 6);
-        assert_eq!(rucksack.compartments[1].items[0].priority, 27);
-        assert_eq!(rucksack.compartments[1].items[1].priority, 28);
-        assert_eq!(rucksack.compartments[1].items[2].priority, 29);
-        assert_eq!(rucksack.compartments[1].items[3].priority, 30);
-        assert_eq!(rucksack.compartments[1].items[4].priority, 31);
-    }
 }
