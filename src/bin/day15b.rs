@@ -7,15 +7,14 @@ use std::{
 
 #[derive(Debug, Clone, Copy)]
 struct Pos {
-    x: i32,
-    y: i32,
+    x: i64,
+    y: i64,
 }
 
 #[derive(Debug)]
 struct Sensor {
     position: Pos,
-    closest: Pos,
-    distance: i32,
+    distance: i64,
 }
 
 impl FromStr for Sensor {
@@ -56,7 +55,6 @@ impl FromStr for Sensor {
         };
         Ok(Sensor {
             position,
-            closest,
             distance: dist(position, closest),
         })
     }
@@ -95,7 +93,7 @@ impl Sensor {
 }
 
 // get the manhattan distance between two points
-fn dist(a: Pos, b: Pos) -> i32 {
+fn dist(a: Pos, b: Pos) -> i64 {
     (a.x - b.x).abs() + (a.y - b.y).abs()
 }
 
@@ -106,7 +104,7 @@ fn main() {
         .flat_map(|l| l.parse::<Sensor>())
         .collect();
 
-    const MAX: i32 = 4000000;
+    const MAX: i64 = 4000000;
     let mut stack: Vec<Region> = vec![Region {
         top_left: Pos { x: 0, y: 0 },
         bottom_right: Pos { x: MAX, y: MAX },
@@ -164,7 +162,6 @@ fn main() {
                 },
             ]
             .into_iter()
-            .filter(|r| r.top_left.x <= r.bottom_right.x && r.top_left.y <= r.bottom_right.y)
             .filter(|region| sensors.iter().all(|s| s.outside_range(region))),
         );
     }
