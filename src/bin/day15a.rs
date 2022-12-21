@@ -14,6 +14,7 @@ struct Pos {
 struct Sensor {
     position: Pos,
     closest: Pos,
+    distance: i32,
 }
 
 impl FromStr for Sensor {
@@ -21,178 +22,48 @@ impl FromStr for Sensor {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut words = s.split_whitespace();
+        let position = Pos {
+            x: words
+                .nth(2)
+                .unwrap()
+                .trim_start_matches("x=")
+                .trim_end_matches(',')
+                .parse()
+                .unwrap(),
+            y: words
+                .next()
+                .unwrap()
+                .trim_start_matches("y=")
+                .trim_end_matches(':')
+                .parse()
+                .unwrap(),
+        };
+        let closest = Pos {
+            x: words
+                .nth(4)
+                .unwrap()
+                .trim_start_matches("x=")
+                .trim_end_matches(',')
+                .parse()
+                .unwrap(),
+            y: words
+                .next()
+                .unwrap()
+                .trim_start_matches("y=")
+                .parse()
+                .unwrap(),
+        };
         Ok(Sensor {
-            position: Pos {
-                x: words
-                    .nth(2)
-                    .unwrap()
-                    .trim_start_matches("x=")
-                    .trim_end_matches(',')
-                    .parse()
-                    .unwrap(),
-                y: words
-                    .next()
-                    .unwrap()
-                    .trim_start_matches("y=")
-                    .trim_end_matches(':')
-                    .parse()
-                    .unwrap(),
-            },
-            closest: Pos {
-                x: words
-                    .nth(4)
-                    .unwrap()
-                    .trim_start_matches("x=")
-                    .trim_end_matches(',')
-                    .parse()
-                    .unwrap(),
-                y: words
-                    .next()
-                    .unwrap()
-                    .trim_start_matches("y=")
-                    .parse()
-                    .unwrap(),
-            },
+            position,
+            closest,
+            distance: dist(position, closest),
         })
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-enum Tile {
-    Sensor,
-    Beacon,
-    NoBeacon,
-    Empty,
-}
-
-struct Grid {
-    min_x: i32,
-    max_x: i32,
-    min_y: i32,
-    max_y: i32,
-    grid: Vec<Vec<Tile>>,
-}
-
-impl Grid {
-    fn new(sensors: &[Sensor]) -> Self {
-        let mut min_x = i32::MAX;
-        let mut max_x = i32::MIN;
-        let mut min_y = i32::MAX;
-        let mut max_y = i32::MIN;
-        for sensor in sensors {
-            if sensor.position.x < min_x {
-                min_x = sensor.position.x;
-            }
-            if sensor.position.x > max_x {
-                max_x = sensor.position.x;
-            }
-            if sensor.position.y < min_y {
-                min_y = sensor.position.y;
-            }
-            if sensor.position.y > max_y {
-                max_y = sensor.position.y;
-            }
-            if sensor.closest.x < min_x {
-                min_x = sensor.closest.x;
-            }
-            if sensor.closest.x > max_x {
-                max_x = sensor.closest.x;
-            }
-            if sensor.closest.y < min_y {
-                min_y = sensor.closest.y;
-            }
-            if sensor.closest.y > max_y {
-                max_y = sensor.closest.y;
-            }
-        }
-
-        min_y = 2000000;
-        max_y = 2000000;
-
-        let grid =
-            vec![vec![Tile::Empty; (max_x - min_x + 1) as usize]; (max_y - min_y + 1) as usize];
-        let mut grid = Grid {
-            min_x,
-            max_x,
-            min_y,
-            max_y,
-            grid,
-        };
-
-        for sensor in sensors {
-            println!("Sensor: {sensor:?}");
-            grid.add_sensor(sensor);
-        }
-
-        grid
-    }
-
-    fn add_sensor(&mut self, sensor: &Sensor) {
-        let dist = dist(sensor.position, sensor.closest);
-        for split in 0..=dist {
-            let rest = dist - split;
-            // draw horizontal lines outward from beacon
-            for x in 1..=split {
-                self.set(
-                    Pos {
-                        x: sensor.position.x + x,
-                        y: sensor.position.y,
-                    },
-                    Tile::NoBeacon,
-                );
-                self.set(
-                    Pos {
-                        x: sensor.position.x - x,
-                        y: sensor.position.y,
-                    },
-                    Tile::NoBeacon,
-                );
-            }
-            // draw vertical lines outward from ends of horizontal lines
-            for y in 1..=rest {
-                self.set(
-                    Pos {
-                        x: sensor.position.x + split,
-                        y: sensor.position.y + y,
-                    },
-                    Tile::NoBeacon,
-                );
-                self.set(
-                    Pos {
-                        x: sensor.position.x + split,
-                        y: sensor.position.y - y,
-                    },
-                    Tile::NoBeacon,
-                );
-                self.set(
-                    Pos {
-                        x: sensor.position.x - split,
-                        y: sensor.position.y + y,
-                    },
-                    Tile::NoBeacon,
-                );
-                self.set(
-                    Pos {
-                        x: sensor.position.x - split,
-                        y: sensor.position.y - y,
-                    },
-                    Tile::NoBeacon,
-                );
-            }
-        }
-        self.set(sensor.position, Tile::Sensor);
-        self.set(sensor.closest, Tile::Beacon);
-    }
-
-    fn set(&mut self, pos: Pos, tile: Tile) {
-        if pos.x < self.min_x || pos.x > self.max_x || pos.y < self.min_y || pos.y > self.max_y {
-            return;
-        }
-        self.grid[(pos.y - self.min_y) as usize][(pos.x - self.min_x) as usize] = tile;
-    }
-
-    fn row(&self, y: i32) -> &[Tile] {
-        &self.grid[(y - self.min_y) as usize]
+impl Sensor {
+    fn within_range(&self, other: Pos) -> bool {
+        dist(self.position, other) <= self.distance
     }
 }
 
@@ -208,24 +79,49 @@ fn main() {
         .flat_map(|l| l.parse::<Sensor>())
         .collect();
 
-    let grid = Grid::new(&sensors);
-
-    let count = grid
-        .row(2000000)
-        .iter()
-        .filter(|t| matches!(t, Tile::NoBeacon))
-        .count();
-    dbg!(count);
-
-    for row in grid.grid {
-        for tile in row {
-            match tile {
-                Tile::Sensor => print!("S"),
-                Tile::Beacon => print!("B"),
-                Tile::NoBeacon => print!("#"),
-                Tile::Empty => print!("."),
-            }
+    let mut min_x = i32::MAX;
+    let mut max_x = i32::MIN;
+    let mut min_y = i32::MAX;
+    let mut max_y = i32::MIN;
+    for sensor in &sensors {
+        if sensor.position.x < min_x {
+            min_x = sensor.position.x;
         }
-        println!();
+        if sensor.position.x > max_x {
+            max_x = sensor.position.x;
+        }
+        if sensor.position.y < min_y {
+            min_y = sensor.position.y;
+        }
+        if sensor.position.y > max_y {
+            max_y = sensor.position.y;
+        }
+        if sensor.closest.x < min_x {
+            min_x = sensor.closest.x;
+        }
+        if sensor.closest.x > max_x {
+            max_x = sensor.closest.x;
+        }
+        if sensor.closest.y < min_y {
+            min_y = sensor.closest.y;
+        }
+        if sensor.closest.y > max_y {
+            max_y = sensor.closest.y;
+        }
     }
+    dbg!(min_x, max_x, min_y, max_y);
+
+    let mut count = 0;
+    let y = 2000000;
+    for x in (min_x - 10000000)..=(max_x + 10000000) {
+        let c = sensors.iter().any(|sensor| {
+            !(sensor.closest.x == x && sensor.closest.y == y) && sensor.within_range(Pos { x, y })
+        });
+        if c {
+            count += 1;
+        }
+        //print!("{}", c.unwrap_or('.'));
+    }
+    println!();
+    dbg!(count);
 }
