@@ -8,7 +8,7 @@ use std::{
 struct Valve {
     name: String,
     neighbors: Vec<String>,
-    flow_rate: u32,
+    flow_rate: i32,
 }
 
 impl FromStr for Valve {
@@ -43,66 +43,73 @@ fn main() {
         .flat_map(|l| l.parse::<Valve>())
         .collect();
 
-    let start = parsed
-        .iter()
-        .find(|v| v.name == "AA")
-        .unwrap()
-        .neighbors
-        .clone();
-
-    let ignore = parsed
-        .iter()
-        .filter(|v| v.flow_rate == 0)
-        .map(|v| v.name.clone())
-        .collect::<HashSet<_>>();
-
-    // Remove all valves with flow rate 0
-    parsed.retain(|v| !ignore.contains(&v.name));
-    // Remove all neighbors which with flow rate 0
-    for v in parsed.iter_mut() {
-        v.neighbors.retain(|n| !ignore.contains(n));
-    }
-
     let valves: HashMap<&str, &Valve> = parsed.iter().map(|v| (v.name.as_str(), v)).collect();
+    let distances = distances(&valves);
 
-    // Do breadth first search
+    // Traverse the graph and find the maximum total pressure released
+    let mut total = 0;
+
+    const AVAILABLE_TIME: i32 = 20;
     let mut queue = VecDeque::new();
-    const AVAILABLE_TIME: u32 = 30;
-    for n in &start {
-        if let Some(n) = valves.get(n.as_str()) {
-            if n.flow_rate > 0 {
-                queue.push_back((n.name.as_str(), AVAILABLE_TIME - 1, 0));
-            }
+    for neighbour in &valves["AA"].neighbors {
+        if valves[neighbour.as_str()].flow_rate > 0 {
+            queue.push_back((neighbour.as_str(), AVAILABLE_TIME, 0, HashSet::new()));
         }
     }
 
-    let mut opened = HashSet::new();
-
-    let mut max_score = 0;
-
-    while let Some((name, time, score)) = queue.pop_front() {
-        if time == 0 {
-            if score > max_score {
-                max_score = score;
-                dbg!(name, score);
-            }
+    while let Some((name, remaining_time, pressure, opened)) = queue.pop_front() {
+        if remaining_time == 0 {
+            total = total.max(pressure);
             continue;
         }
 
         let valve = valves[name];
-        // Stay here and open the valve
-        if !opened.contains(name) {
-            opened.insert(name);
-            queue.push_back((name, time - 1, score + valve.flow_rate * time));
-        }
-        // stay here and do nothing
-        // queue.push_back((name, time - 1, score));
 
-        // Move to a neighbor
-        for n in &valve.neighbors {
-            queue.push_back((n.as_str(), time - 1, score));
+        // try opening the valve
+        if !opened.contains(name) {
+            let mut new_opened = opened.clone();
+            new_opened.insert(name);
+            queue.push_back((
+                name,
+                remaining_time - 1,
+                pressure + valve.flow_rate * remaining_time,
+                new_opened,
+            ));
+        }
+
+        for (neighbour, distance) in &distances[name] {
+            //  try moving to neighbor
+            let remaining_time = remaining_time - distance;
+            if remaining_time >= 0 {
+                queue.push_back((neighbour, remaining_time, pressure, opened.clone()));
+            }
         }
     }
 
-    dbg!(max_score);
+    dbg!(total);
+}
+
+fn distances<'a>(valves: &'a HashMap<&'a str, &Valve>) -> HashMap<&'a str, Vec<(&'a str, i32)>> {
+    let mut distances = HashMap::new();
+    for start in valves.keys().filter(|v| valves[*v].flow_rate > 0) {
+        let mut queue = VecDeque::new();
+        queue.push_back((*start, 0));
+        let mut visited = HashSet::new();
+
+        while let Some((current, distance)) = queue.pop_front() {
+            for neighbor in valves[current].neighbors.iter() {
+                if !visited.contains(neighbor.as_str()) {
+                    visited.insert(neighbor.as_str());
+                    queue.push_back((neighbor.as_str(), distance + 1));
+                }
+            }
+            if current != *start && valves[current].flow_rate > 0 {
+                distances
+                    .entry(*start)
+                    .or_insert_with(Vec::new)
+                    .push((current, distance));
+            }
+        }
+    }
+    distances
 }
